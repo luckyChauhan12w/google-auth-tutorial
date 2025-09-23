@@ -103,9 +103,13 @@ const userLogout = asyncHandler(async (req, res) => {
 
 })
 
-
+// Send the Verification OTP to the User's Email
 const sendVerifyOtp = asyncHandler(async (req, res) => {
     const { userId } = req.body;
+
+    if (!userId) {
+        throw new ApiError(400, "User ID is required");
+    }
 
     const user = await User.findById(userId);
 
@@ -120,6 +124,60 @@ const sendVerifyOtp = asyncHandler(async (req, res) => {
 
     await user.save();
 
+    const result = await sendEmail(
+        user.email,
+        "Verify your email",
+        `Your OTP is ${otp}`
+    );
+
+    // console.log(result)
+
+    if (!result.success) {
+        throw new ApiError(500, result.error, "Failed to send email");
+    }
+
+    return res.status(200).json(new ApiResponse(200, "OTP sent successfully", { otp }))
+
 })
 
-export { registerUser, loginUser, userLogout }
+const verifyEmail = asyncHandler(async (req, res) => {
+    const { userId, otp } = req.body;
+
+    // console.log(req.body)
+
+    if (!userId || !otp) {
+        throw new ApiError(400, "User ID and OTP are required");
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+        throw new ApiError(400, "User not found");
+    }
+
+    if (user.verifyOtp !== otp) {
+        throw new ApiError(400, "Invalid OTP");
+    }
+
+    if (user.verifyOtpExpireAt < Date.now()) {
+        throw new ApiError(400, "Invalid OTP because it expired");
+    }
+
+    user.isAccountVerified = true;
+    user.verifyOtp = "";
+    user.verifyOtpExpireAt = 0;
+
+    await user.save();
+
+    return res.status(200).json(new ApiResponse(200, "Email verified successfully"))
+})
+
+
+
+export {
+    registerUser,
+    loginUser,
+    userLogout,
+    sendVerifyOtp,
+    verifyEmail
+}
