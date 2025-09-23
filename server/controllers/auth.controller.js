@@ -2,7 +2,7 @@ import User from "../models/user.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import transporter from "../config/nodemailer.js";
+import { sendEmail } from "../utils/sendEmail.js";
 
 const registerUser = asyncHandler(async (req, res) => {
 
@@ -38,21 +38,17 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     // sending welcome message 
+    const result = await sendEmail(
+        email,
+        "Welcome to our app",
+        `Hello ${name}, welcome to our app!`
+    );
 
-    const mailOptions = {
-        from: process.env.SENDER_EMAIL,
-        to: email,
-        subject: "Welcome to our Authentication App",
-        text: `Hello ${name}, welcome to our app!`,
+    // console.log(result)  // for debuging purpose
+
+    if (!result.success) {
+        throw new ApiError(500, result.error, "Failed to send email");
     }
-
-    transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-            console.log(error)
-        } else {
-            console.log("Email sent: " + info.response)
-        }
-    })
 
     return res.status(201).json(new ApiResponse(201, "User registered successfully", userWithoutPassword))
 })
@@ -107,5 +103,23 @@ const userLogout = asyncHandler(async (req, res) => {
 
 })
 
+
+const sendVerifyOtp = asyncHandler(async (req, res) => {
+    const { userId } = req.body;
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+        throw new ApiError(400, "User not found");
+    }
+
+    const otp = Math.floor(1000 + Math.random() * 9000);
+
+    user.verifyOtp = otp;
+    user.verifyOtpExpireAt = Date.now() + 60 * 60 * 1000;
+
+    await user.save();
+
+})
 
 export { registerUser, loginUser, userLogout }
