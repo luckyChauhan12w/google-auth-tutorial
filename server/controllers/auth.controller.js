@@ -63,7 +63,7 @@ const loginUser = asyncHandler(async (req, res) => {
     const user = await User.findOne({ email });
 
     if (!user) {
-        throw new ApiError(400, "Email not found");
+        throw new ApiError(400, "User not found");
     }
 
     const isPasswordValid = user.comparePassword(password);
@@ -172,6 +172,77 @@ const verifyEmail = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, "Email verified successfully"))
 })
 
+const isAuthenticated = asyncHandler(async (req, res) => {
+    return res.status(200).json(new ApiResponse(200, "User authenticated successfully", req.body))
+})
+
+// send password rest otp
+const sendResetOtp = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        throw new ApiError(400, "Email is required");
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+        throw new ApiError(400, "User not found");
+    }
+
+    const otp = Math.floor(1000 + Math.random() * 9000);
+
+    user.resetOtp = otp;
+    user.resetOtpExpireAt = Date.now() + 15 * 60 * 1000;
+
+    await user.save();
+
+    const result = await sendEmail(
+        user.email,
+        "Reset your password",
+        `Your OTP is ${otp}`
+    );
+
+    // console.log(result)
+
+    if (!result.success) {
+        throw new ApiError(500, result.error, "Failed to send email");
+    }
+
+    return res.status(200).json(new ApiResponse(200, "OTP sent successfully", { otp }))
+})
+
+const resetPassword = asyncHandler(async (req, res) => {
+    const { email, otp, password } = req.body;
+
+    if (!email || !otp || !password) {
+        throw new ApiError(400, "Email, OTP and Password are required");
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+        throw new ApiError(400, "User not found");
+    }
+
+    if (user.resetOtp !== otp) {
+        throw new ApiError(400, "Invalid OTP");
+    }
+
+    if (user.resetOtpExpireAt < Date.now()) {
+        throw new ApiError(400, "Invalid OTP because it expired");
+    }
+
+    user.password = password;
+    user.resetOtp = "";
+    user.resetOtpExpireAt = 0;
+
+    await user.save();
+
+    return res.status(200).json(new ApiResponse(200, "Password reset successfully"))
+})
+
+
 
 
 export {
@@ -179,5 +250,8 @@ export {
     loginUser,
     userLogout,
     sendVerifyOtp,
-    verifyEmail
+    verifyEmail,
+    isAuthenticated,
+    sendResetOtp,
+    resetPassword
 }

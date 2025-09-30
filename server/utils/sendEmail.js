@@ -1,5 +1,4 @@
 import transporter from "../config/nodemailer.js";
-import { asyncHandler } from "./asyncHandler.js";
 
 const sendEmail = async (to, subject, text) => {
     try {
