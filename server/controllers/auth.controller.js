@@ -66,7 +66,7 @@ const loginUser = asyncHandler(async (req, res) => {
         throw new ApiError(400, "User not found");
     }
 
-    const isPasswordValid = user.comparePassword(password);
+    const isPasswordValid = await user.comparePassword(password);
 
     if (!isPasswordValid) {
         throw new ApiError(400, "Invalid credentials");
@@ -103,7 +103,6 @@ const userLogout = asyncHandler(async (req, res) => {
 
 })
 
-// Send the Verification OTP to the User's Email
 const sendVerifyOtp = asyncHandler(async (req, res) => {
     const { userId } = req.body;
 
